@@ -55,11 +55,12 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
+from reportlab.graphics.barcode import qr as qrcodes
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import (ArrayObject, DecodedStreamObject, DictionaryObject,
                           NameObject, NumberObject, RectangleObject, TextStringObject)
 
-from logo import draw_logo
+from logo import draw_logo, draw_mark
 
 ROOT = Path(__file__).resolve().parent
 FONT = "GameFont"
@@ -121,6 +122,11 @@ def validate(cfg):
         raise ValueError("TEXT_VERTICAL_ALIGN must be top, center, or bottom.")
     for name in ("TEXT_CMYK", "BOX_BACKGROUND_CMYK", "BOX_TEXT_CMYK"):
         color(getattr(cfg, name))
+    color(getattr(cfg, "CARD_BACK_LOGO_CMYK", cfg.TEXT_CMYK))
+    back_scale = getattr(cfg, "CARD_BACK_LOGO_SCALE", 0.7)
+    positive(back_scale, "CARD_BACK_LOGO_SCALE")
+    if back_scale > 1:
+        raise ValueError("CARD_BACK_LOGO_SCALE must be at most 1.")
     if not isinstance(cfg.CARD_COLORS_CMYK, dict) or not cfg.CARD_COLORS_CMYK:
         raise ValueError("CARD_COLORS_CMYK must contain at least one named color.")
     for name, channels in cfg.CARD_COLORS_CMYK.items():
@@ -135,11 +141,14 @@ def validate(cfg):
     cards = []
     for index, entry in enumerate(cfg.CARDS, 1):
         card = {"text": entry} if isinstance(entry, str) else dict(entry)
-        unknown = set(card) - {"text", "color", "copies", "background_cmyk", "text_cmyk", "font_size_pt"}
+        unknown = set(card) - {"text", "color", "copies", "background_cmyk", "text_cmyk",
+                               "font_size_pt", "qr"}
         if unknown:
             raise ValueError(f"Card {index}: unknown settings {sorted(unknown)}")
         if not isinstance(card.get("text"), str) or not card["text"].strip():
             raise ValueError(f"Card {index}: text must be a non-empty string.")
+        if "qr" in card and (not isinstance(card["qr"], str) or not card["qr"].strip()):
+            raise ValueError(f"Card {index}: qr must be a non-empty URL string.")
         copies = card.get("copies", 1)
         if type(copies) is not int or copies < 1:
             raise ValueError(f"Card {index}: copies must be a positive integer.")
@@ -195,6 +204,49 @@ def fit(text, width, height, requested, minimum, leading, shrink=True):
             break
         size = max(minimum, round(size - 0.25, 3))
     raise ValueError(f"Text cannot fit at {minimum:g} pt: {text!r}. Reduce size/margins or edit the phrase.")
+
+
+def qr_modules(url, level="M"):
+    """The QR matrix, as rows of booleans. ReportLab encodes it; we draw it."""
+    widget = qrcodes.QrCodeWidget(url, barLevel=level)
+    widget.getBounds()  # The encoding happens here.
+    modules = widget.qr.modules
+    if not modules:
+        raise ValueError(f"Could not encode a QR code for {url!r}.")
+    return [[bool(cell) for cell in row] for row in modules]
+
+
+def draw_qr(c, url, x, y, side, quiet=4, level="M"):
+    """Fill a QR code into a square, in the canvas's current color.
+
+    Every dark module goes into one path, with each row's neighbours merged
+    into a single rectangle. One path means one fill, so the rasterizer
+    resolves the whole union at once and shared module edges cannot show a
+    seam the way separately drawn shapes can.
+    """
+    modules = qr_modules(url, level)
+    count = len(modules)+2*quiet
+    step = side/count
+    path = c.beginPath()
+    for row, cells in enumerate(modules):
+        col = 0
+        while col < len(cells):
+            if not cells[col]:
+                col += 1
+                continue
+            end = col
+            while end < len(cells) and cells[end]:
+                end += 1
+            left = x+(quiet+col)*step
+            top = y+side-(quiet+row)*step
+            path.moveTo(left, top)
+            path.lineTo(left+(end-col)*step, top)
+            path.lineTo(left+(end-col)*step, top-step)
+            path.lineTo(left, top-step)
+            path.close()
+            col = end
+    c.drawPath(path, stroke=0, fill=1)
+    return step
 
 
 def text_block(c, text, x, y, width, height, size, minimum, leading=1.1,
@@ -271,9 +323,27 @@ def make_cards(cfg, cards, target, bleed_mm=None):
     for i, card in enumerate(cards, 1):
         c.setFillColor(color(card_background(cfg, card)))
         c.rect(0, 0, w + 2*b, h + 2*b, stroke=0, fill=1)
+        text_height = h-2*m
+        if card.get("qr"):
+            # A QR needs a light field and a quiet zone to scan, so it sits on
+            # a panel in the card's text color with the modules in the card's
+            # background color: the card inverted, rather than a foreign white.
+            share = getattr(cfg, "CARD_QR_HEIGHT_SHARE", 0.62)
+            side = min(w-2*m, (h-2*m)*share)
+            gap = min(4*mm, max(0.0, (h-2*m-side)/3))
+            panel_x, panel_y = b+m+(w-2*m-side)/2, b+m+(h-2*m)-side
+            c.setFillColor(color(card.get("text_cmyk", cfg.TEXT_CMYK)))
+            # The corner radius stays inside the four-module quiet zone.
+            c.roundRect(panel_x, panel_y, side, side, side*0.06, stroke=0, fill=1)
+            c.setFillColor(color(card_background(cfg, card)))
+            draw_qr(c, card["qr"], panel_x, panel_y, side)
+            text_height = panel_y-(b+m)-gap
+            if text_height <= 0:
+                raise ValueError(f"Card page {i}: the QR panel leaves no room for text. "
+                                 "Lower CARD_QR_HEIGHT_SHARE.")
         c.setFillColor(color(card.get("text_cmyk", cfg.TEXT_CMYK)))
         try:
-            sizes.append(text_block(c, card["text"], b+m, b+m, w-2*m, h-2*m,
+            sizes.append(text_block(c, card["text"], b+m, b+m, w-2*m, text_height,
                                     card.get("font_size_pt", cfg.FONT_SIZE_PT),
                                     cfg.MIN_FONT_SIZE_PT, cfg.LINE_HEIGHT,
                                     cfg.TEXT_VERTICAL_ALIGN, cfg.AUTO_SHRINK_TEXT))
@@ -283,6 +353,46 @@ def make_cards(cfg, cards, target, bleed_mm=None):
     c.save()
     save_pdf(buffer, target, cfg, (b, b, b+w, b+h), (0, 0, w+2*b, h+2*b))
     return sizes
+
+
+def card_back_designs(cfg, cards):
+    """Palette order, then extra custom inks; record matching front page numbers."""
+    backs = [dict(color=name, background_cmyk=list(ink), front_pages=[])
+             for name, ink in cfg.CARD_COLORS_CMYK.items()]
+    named = {back["color"]: back for back in backs}
+    for page, card in enumerate(cards, 1):
+        ink = list(card_background(cfg, card))
+        back = named[card.get("color", cfg.DEFAULT_CARD_COLOR)]
+        if back["background_cmyk"] != ink:
+            back = next((item for item in backs if item["background_cmyk"] == ink), None)
+            if back is None:
+                back = dict(color=None, background_cmyk=ink, front_pages=[])
+                backs.append(back)
+        back["front_pages"].append(page)
+    for page, back in enumerate(backs, 1):
+        back["page"] = page
+    return backs
+
+
+def make_card_backs(cfg, backs, target, bleed_mm=None):
+    bleed_mm = cfg.BLEED_MM if bleed_mm is None else bleed_mm
+    w, h, b, m = (v * mm for v in (cfg.CARD_WIDTH_MM, cfg.CARD_HEIGHT_MM,
+                                  bleed_mm, cfg.SAFE_MARGIN_MM))
+    scale = getattr(cfg, "CARD_BACK_LOGO_SCALE", 0.7)
+    logo_w, logo_h = min(w*scale, w-2*m), min(h*scale, h-2*m)
+    buffer = io.BytesIO()
+    title = cfg.GAME_NAME + " - card backs" + (" (no bleed)" if b == 0 else "")
+    c = canvas_for(buffer, (w+2*b, h+2*b), title)
+    for back in backs:
+        c.setFillColor(color(back["background_cmyk"]))
+        c.rect(0, 0, w+2*b, h+2*b, stroke=0, fill=1)
+        c.setFillColor(color(getattr(cfg, "CARD_BACK_LOGO_CMYK", cfg.TEXT_CMYK)))
+        # Version 3 centers on the X crossing; other marks use visible bounds.
+        draw_mark(c, b+(w-logo_w)/2, b+(h-logo_h)/2, logo_w, logo_h,
+                  tight=True, version=getattr(cfg, "LOGO_VERSION", 1))
+        c.showPage()
+    c.save()
+    save_pdf(buffer, target, cfg, (b, b, b+w, b+h), (0, 0, w+2*b, h+2*b))
 
 
 def box_geometry(cfg, count):
@@ -361,9 +471,12 @@ def box_art(c, cfg, g):
         c.drawString(front+(W-line_width)/2,
                      front_margin+title_height-ascent-i*title_size*1.05, line)
     logo_bottom = front_margin+title_height+front_margin
+    logo_height = H-front_margin-logo_bottom
+    # Equal padding above the title and below the top edge centers v3's X
+    # crossing in that remaining space, independently of the title's height.
     c.saveState()
     draw_logo(c, front+front_margin, logo_bottom, usable,
-              H-front_margin-logo_bottom, cfg)
+              logo_height, cfg)
     c.restoreState()
     if cfg.BOX_BACK_TEXT:
         text_block(c, cfg.BOX_BACK_TEXT, G+margin, margin, W-2*margin, H-2*margin,
@@ -413,6 +526,7 @@ def combine(cfg, paths, target):
 
 def build(cfg):
     cards = validate(cfg)
+    backs = card_back_designs(cfg, cards)
     g = box_geometry(cfg, len(cards))
     output = resolve(cfg, cfg.OUTPUT_DIR)
     output.mkdir(parents=True, exist_ok=True)
@@ -421,6 +535,8 @@ def build(cfg):
         stage = Path(scratch)
         sizes = make_cards(cfg, cards, stage / "cards.pdf")
         make_cards(cfg, cards, stage / "cards-no-bleed.pdf", bleed_mm=0)
+        make_card_backs(cfg, backs, stage / "card-backs.pdf")
+        make_card_backs(cfg, backs, stage / "card-backs-no-bleed.pdf", bleed_mm=0)
         page_size = make_box(cfg, g, stage / "box-artwork.pdf", True, False)
         make_box(cfg, g, stage / "box-dieline.pdf", False, True)
         make_box(cfg, g, stage / "box-proof.pdf", True, True)
@@ -428,6 +544,9 @@ def build(cfg):
         report = dict(game=cfg.GAME_NAME, card_count=len(cards),
                       card_format=getattr(cfg, "CARD_FORMAT", "custom"),
                       card_backgrounds_cmyk=[card_background(cfg, card) for card in cards],
+                      card_backs=backs,
+                      card_back_logo_cmyk=getattr(cfg, "CARD_BACK_LOGO_CMYK", cfg.TEXT_CMYK),
+                      card_back_logo_scale=getattr(cfg, "CARD_BACK_LOGO_SCALE", 0.7),
                       box_background_cmyk=cfg.BOX_BACKGROUND_CMYK,
                       vector_logo_enabled=getattr(cfg, "USE_VECTOR_LOGO", False),
                       logo_version=getattr(cfg, "LOGO_VERSION", 1),
@@ -438,7 +557,8 @@ def build(cfg):
                                                 g["H"]-cfg.BOX_BOARD_THICKNESS_MM, g["depth"]],
                       box_score_panel_mm=[g["W"], g["H"], g["D"]],
                       box_page_mm=page_size, icc_profile=cfg.ICC_PROFILE_PATH,
-                      notes=["Cards have one printed face per page; no backs or imposition.",
+                      notes=["Card fronts and color-matched backs are separate PDFs; no duplex pairing or sheet imposition.",
+                             "card-backs.pdf and card-backs-no-bleed.pdf share the card_backs page order and front_pages mapping.",
                              "cards-no-bleed.pdf has exact finished-size pages, without bleed or cut marks, for printer imposition.",
                              "game.pdf ends with box-proof.pdf, including visible cut/fold guides.",
                              "Send separate box artwork and dieline for production; guides are spot separations.",

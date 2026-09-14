@@ -41,7 +41,7 @@ The launcher also accepts `--watch` from a terminal. Stop watching with Ctrl+C. 
 
 ## What to edit
 
-**Square mode:** run `python3 generate.py --format square` for 2.5 × 2.5 inch (63.5 × 63.5 mm) cards and a matching box. Its six PDFs go in `output/pdf/square/`, so you can compare them with the existing poker version. Add `--watch` to keep that version up to date:
+**Square mode:** run `python3 generate.py --format square` for 2.5 × 2.5 inch (63.5 × 63.5 mm) cards and a matching box. Its eight PDFs go in `output/pdf/square/`, so you can compare them with the existing poker version. Add `--watch` to keep that version up to date:
 
 ```sh
 python3 generate.py --format square --watch
@@ -62,8 +62,11 @@ Use `--format poker` to generate a poker comparison in `output/pdf/poker/`. Alte
 | `CARD_COLORS_CMYK` | Named card colors: red, green, blue, purple; add or edit any CMYK tuple |
 | `DEFAULT_CARD_COLOR` | Color name used by plain strings or cards without a `color` field |
 | `TEXT_CMYK` | Default card text color; four ink percentages, each from 0 through 100 |
+| `CARD_BACK_LOGO_CMYK` | Independent logo color for card backs; white by default |
+| `CARD_BACK_LOGO_SCALE` | Maximum fraction of card width and height occupied by the centered logo (0 to 1, excluding 0); also respects the safe margin |
 | `BOX_BACKGROUND_CMYK`, `BOX_TEXT_CMYK` | Independent box background and text/logo colors |
 | `USE_VECTOR_LOGO` | `True` by default; draws the large mathematical logo above the bottom game name |
+| `CARD_QR_HEIGHT_SHARE` | Share of a QR card's usable height given to the code panel; the caption takes the rest |
 | `LOGO_VERSION` | `1` for the original solid mark; `"1b"` for version 1 with all four arm radii matched; `2` for the raised loop with a crescent and hollow stem; `3` for a solid capital P over an outlined X |
 | `CARD_THICKNESS_MM` | Measured thickness of one finished card, including any coating |
 | `BOX_BOARD_THICKNESS_MM` | Thickness of the box material |
@@ -79,11 +82,17 @@ CARDS = [
     {"text": "How will we govern our finances?", "color": "blue"},
     {"text": "What does\nhome mean to you?", "color": "red", "copies": 2,
      "font_size_pt": 25},
+    {"text": "Make your own cards.", "color": "rules",
+     "qr": "https://github.com/olaruandreidan/XPCardGame"},
 ]
 BOX_BACKGROUND_CMYK = (85, 10, 75, 10)  # Green box, independent of card colors.
 ```
 
 This produces three card pages and sizes the box for three cards. A `background_cmyk` tuple on an individual card overrides its named palette color. The default sample colors are illustrative, not gameplay categories. Changing the card palette never changes the box colors. Every card has exactly one solid background and one phrase. There are no printed borders, numbers, or trim marks on cards. Text wraps at spaces, preserves explicit newlines, and may shrink in quarter-point increments. A word that is too wide or text that cannot fit at the minimum size stops the build with a useful error. Missing font characters and unknown color names also stop the build.
+
+### QR cards
+
+A `qr` URL turns a card into a QR card. The code is generated from the URL and drawn as vector paths, like the logo; no image is embedded and no extra dependency is needed. It sits on a rounded panel in the card's text color with the modules in the card's background color, so the code is the card inverted rather than a foreign white block, and a scanner still gets the light field and four-module quiet zone it needs. The caption goes underneath and is sized by the usual auto-fit rules. `CARD_QR_HEIGHT_SHARE` sets how much of the card's usable height the panel takes, with the caption getting the rest; at the default `0.62` a poker card gives 1.13 mm modules and a square card 0.75 mm, both comfortably above what a phone camera needs. A long URL is one unbreakable word, so put line breaks in the caption yourself if you want the address printed as well.
 
 ## Files generated
 
@@ -92,6 +101,8 @@ This produces three card pages and sizes the box for three cards. A `background_
 | `game.pdf` | Requested combined document: each card on a page, followed by the unfolded box with visible cut/fold guides |
 | `cards.pdf` | Production card faces, one per page, with bleed and explicit TrimBox/BleedBox |
 | `cards-no-bleed.pdf` | Exact finished-size card pages without bleed or cut marks, for the printer to arrange on a larger sheet |
+| `card-backs.pdf` | One back per palette color, plus additional custom card backgrounds; centered vector logo, with bleed |
+| `card-backs-no-bleed.pdf` | Same back pages at exact finished size, without bleed or cut marks |
 | `box-artwork.pdf` | Clean box artwork, without manufacturing lines |
 | `box-dieline.pdf` | Matching vector cut and score paths on a separate page |
 | `box-proof.pdf` | Box artwork plus visible manufacturing guides for assembly and review |
@@ -128,7 +139,9 @@ Make a physical prototype with your actual stock before ordering a print run. Th
 4. At the bottom, fold the two small side flaps inward. Fold the large closure across the opening, bend its tongue at the second score, and tuck it inside the opposite wall.
 5. Insert the cards and close the top the same way. Its closure attaches to the opposite broad panel.
 
-Cards have no generated backs, duplex pairing, rounded-corner tooling, or sheet imposition. The printer can impose the individual card pages. If needed, these can be added later without changing the core design settings.
+Card backs are generated on every run, including watch mode and both card formats. Their backgrounds use exactly the same CMYK values as the fronts. Each has only the selected `LOGO_VERSION`, with proportions preserved. Version 3 centers the X's crossing on the card; on the box it centers horizontally on the front panel and vertically in the space between the title and the top edge; other versions center by their visible bounds. Scaling accounts for the P bowl's extra reach so it stays inside the available space, clear of the box name. `CARD_BACK_LOGO_SCALE` controls its size and `CARD_BACK_LOGO_CMYK` its ink, independently of the box. Backs always display the logo; `USE_VECTOR_LOGO` controls the box only.
+
+Back pages follow `CARD_COLORS_CMYK` order, including unused palette entries. Additional distinct `background_cmyk` overrides follow in first-use order. The `card_backs` list in `build-report.json` gives each back's one-based page number, ink values, and matching front page numbers, including copies. Back designs do not increase the deck count or box depth. Give the printer `card-backs.pdf` with `cards.pdf`, or both no-bleed files. The printer repeats each back for its matching fronts and handles sheet arrangement and duplex orientation. `game.pdf` remains the fronts followed by the box proof; no sheet imposition or rounded-corner tooling is generated.
 
 ## Logo study
 

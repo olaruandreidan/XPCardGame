@@ -40,6 +40,9 @@ MIN_FONT_SIZE_PT = 8
 LINE_HEIGHT = 1.08
 TEXT_VERTICAL_ALIGN = "center"  # "top", "center", or "bottom"; always left aligned.
 AUTO_SHRINK_TEXT = True  # Shrinks only when needed; refuses to go below the minimum.
+# Share of a QR card's usable height given to the code's panel; the caption
+# takes the rest. Only cards carrying a "qr" key are affected.
+CARD_QR_HEIGHT_SHARE = 0.62
 CARD_COLORS_CMYK = {
     "red": (0, 90, 75, 0),
     "green": (85, 10, 75, 10),
@@ -49,10 +52,15 @@ CARD_COLORS_CMYK = {
 }
 DEFAULT_CARD_COLOR = "blue"  # Used for plain strings and cards without a color.
 TEXT_CMYK = (0, 0, 0, 0)  # White paper / no ink.
+CARD_BACK_LOGO_CMYK = (0, 0, 0, 0)  # Independent logo ink on every card back.
+CARD_BACK_LOGO_SCALE = 0.7  # Fit within 70% of width/height, respecting SAFE_MARGIN_MM.
+# Backs use LOGO_VERSION, centered, with one page per palette color (plus custom inks).
 
 # A plain string creates one card. A dict allows per-card overrides.
 # {"text": "Your phrase", "color": "red", "copies": 2,
 #  "text_cmyk": (0, 0, 0, 0), "font_size_pt": 25}
+# A "qr" URL turns the card into a QR card: the code is drawn as vector paths
+# on a panel in the card's text color, with the caption below it.
 # A "background_cmyk" tuple overrides the named color for a single card.
 # Color choices below are examples, not assigned gameplay categories.
 # Use \n for intentional line breaks. Copies also increase the box capacity.
@@ -101,6 +109,12 @@ CARDS = [
              "piece of software that lets you create more cards that you can "
              "then print by following the instructions found at the same link.",
      "color": "rules", "font_size_pt": 13},
+    # Rule 6 points at this one.
+    {"text": "Make your own cards.\n\n"
+             "github.com/\n"
+             "olaruandreidan/XPCardGame",
+     "qr": "https://github.com/olaruandreidan/XPCardGame",
+     "color": "rules", "font_size_pt": 11},
     # Topic cards.
     {"text": "How will we govern our finances?", "color": "blue"},
     {"text": "What makes you feel at home?", "color": "red"},

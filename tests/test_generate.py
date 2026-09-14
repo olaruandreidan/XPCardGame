@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import re
 from pathlib import Path
 import tempfile
@@ -101,6 +102,87 @@ class GeneratorTests(unittest.TestCase):
         page = PdfReader(out / "cards.pdf").pages[0]
         self.assertAlmostEqual(float(page.trimbox.width)/mm, 70, places=4)
         self.assertAlmostEqual(float(page.trimbox.height)/mm, 100, places=4)
+
+    def test_backs_match_palette_custom_inks_and_front_copies(self):
+        self.cfg.CARDS = [
+            {"text": "Red", "color": "red", "copies": 2},
+            {"text": "Custom", "background_cmyk": (1, 2, 3, 4), "copies": 2},
+            {"text": "Also custom", "background_cmyk": (1, 2, 3, 4)},
+        ]
+        out = self.build()
+        report = json.loads((out / "build-report.json").read_text())
+        designs = report["card_backs"]
+        self.assertEqual(len(designs), len(self.cfg.CARD_COLORS_CMYK)+1)
+        self.assertEqual(designs[0]["front_pages"], [1, 2])
+        self.assertEqual(designs[-1]["front_pages"], [3, 4, 5])
+        self.assertEqual(report["card_count"], 5)
+        full = PdfReader(out / "card-backs.pdf")
+        tight = PdfReader(out / "card-backs-no-bleed.pdf")
+        self.assertEqual(len(full.pages), len(designs))
+        self.assertEqual(len(tight.pages), len(designs))
+        for index, (page, trimmed) in enumerate(zip(full.pages, tight.pages)):
+            self.assertEqual(page.trimbox, PdfReader(out / "cards.pdf").pages[0].trimbox)
+            self.assertEqual(trimmed.mediabox, trimmed.trimbox)
+            self.assertEqual(trimmed.mediabox, trimmed.bleedbox)
+            for item, reader in ((page, full), (trimmed, tight)):
+                ops = ContentStream(item.get_contents(), reader).operations
+                fills = [tuple(float(n) for n in values) for values, op in ops if op == b"k"]
+                self.assertEqual(fills, [tuple(v/100 for v in designs[index]["background_cmyk"]),
+                                         tuple(v/100 for v in self.cfg.CARD_BACK_LOGO_CMYK)])
+                self.assertEqual(item.extract_text(), "")
+                operators = {op for _, op in ops}
+                self.assertIn(b"c", operators)  # Vector logo, no image or printed guides.
+                self.assertFalse(operators & {b"Do", b"rg", b"RG", b"S", b"s"})
+
+    def test_square_back_logo_is_centered_and_resizes(self):
+        import logo
+        self.cfg.CARD_WIDTH_MM = self.cfg.CARD_HEIGHT_MM = 63.5
+        self.cfg.LOGO_VERSION = 3
+        self.cfg.CARD_BACK_LOGO_SCALE = 0.5
+        self.cfg.CARD_BACK_LOGO_CMYK = (0, 0, 0, 100)
+        out = self.build()
+        pdf = PdfReader(out / "card-backs-no-bleed.pdf")
+        page = pdf.pages[0]
+        self.assertAlmostEqual(float(page.mediabox.width), 180, places=3)
+        self.assertAlmostEqual(float(page.mediabox.height), 180, places=3)
+        # ReportLab combines the logo's translate/scale operations into one matrix.
+        ops = ContentStream(page.get_contents(), pdf).operations
+        matrices = [list(map(float, v)) for v, op in ops if op == b"cm"]
+        a, b, c, d, e, f = matrices[-1]
+        x, y, w, h = logo.mark_bounds(self.cfg.LOGO_VERSION, tight=True)
+        cx, cy = logo.V3_CROSSING
+        self.assertAlmostEqual(a*cx+c*cy+e, 90, places=3)
+        self.assertAlmostEqual(b*cx+d*cy+f, 90, places=3)
+        reach = max(abs(a*(x-cx)), abs(a*(x+w-cx)),
+                    abs(d*(y-cy)), abs(d*(y+h-cy)))
+        self.assertAlmostEqual(reach, 45, places=3)
+        self.cfg.CARD_BACK_LOGO_SCALE = 1.1
+        with self.assertRaisesRegex(ValueError, "CARD_BACK_LOGO_SCALE"):
+            self.build()
+
+    def test_v3_x_crossing_is_centered_above_box_title(self):
+        import logo
+        self.cfg.LOGO_VERSION = 3
+        for width, height in self.cfg.CARD_FORMATS_MM.values():
+            self.cfg.CARD_WIDTH_MM, self.cfg.CARD_HEIGHT_MM = width, height
+            out = self.build()
+            pdf = PdfReader(out / "box-artwork.pdf")
+            ops = ContentStream(pdf.pages[0].get_contents(), pdf).operations
+            a, b, c, d, e, f = [list(map(float, v)) for v, op in ops if op == b"cm"][-1]
+            g = app.box_geometry(self.cfg, len(app.validate(self.cfg)))
+            cx, cy = logo.V3_CROSSING
+            self.assertAlmostEqual(a*cx+c*cy+e, (g["x"][2]+g["W"]/2)*mm, places=3)
+            # Locate the title's first line in the PDF; its top defines the
+            # lower boundary of the space being centered, even if it wraps.
+            for values, op in ops:
+                if op == b"Tf":
+                    title_size = float(values[1])
+                elif op == b"Tm":
+                    baseline = float(values[5])
+                elif op == b"Tj":
+                    break
+            title_top = baseline + app.pdfmetrics.getAscentDescent(app.FONT, title_size)[0]
+            self.assertAlmostEqual(b*cx+d*cy+f, (g["H"]*mm+title_top)/2, places=3)
 
     def test_square_format_exports_exact_size_and_matching_box(self):
         self.cfg.CARD_FORMAT = "square"

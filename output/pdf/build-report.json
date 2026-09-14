@@ -1,8 +1,14 @@
 {
   "game": "The marriage level-up game",
-  "card_count": 20,
+  "card_count": 21,
   "card_format": "poker",
   "card_backgrounds_cmyk": [
+    [
+      0,
+      0,
+      0,
+      85
+    ],
     [
       0,
       0,
@@ -124,6 +130,96 @@
       0
     ]
   ],
+  "card_backs": [
+    {
+      "color": "red",
+      "background_cmyk": [
+        0,
+        90,
+        75,
+        0
+      ],
+      "front_pages": [
+        11,
+        15,
+        19
+      ],
+      "page": 1
+    },
+    {
+      "color": "green",
+      "background_cmyk": [
+        85,
+        10,
+        75,
+        10
+      ],
+      "front_pages": [
+        12,
+        16,
+        20
+      ],
+      "page": 2
+    },
+    {
+      "color": "blue",
+      "background_cmyk": [
+        90,
+        70,
+        0,
+        0
+      ],
+      "front_pages": [
+        10,
+        14,
+        18
+      ],
+      "page": 3
+    },
+    {
+      "color": "purple",
+      "background_cmyk": [
+        55,
+        85,
+        0,
+        0
+      ],
+      "front_pages": [
+        13,
+        17,
+        21
+      ],
+      "page": 4
+    },
+    {
+      "color": "rules",
+      "background_cmyk": [
+        0,
+        0,
+        0,
+        85
+      ],
+      "front_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "page": 5
+    }
+  ],
+  "card_back_logo_cmyk": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "card_back_logo_scale": 0.7,
   "box_background_cmyk": [
     90,
     70,
@@ -146,6 +242,7 @@
     12.5,
     14.5,
     13,
+    10.25,
     26,
     26,
     26,
@@ -179,7 +276,8 @@
   ],
   "icc_profile": null,
   "notes": [
-    "Cards have one printed face per page; no backs or imposition.",
+    "Card fronts and color-matched backs are separate PDFs; no duplex pairing or sheet imposition.",
+    "card-backs.pdf and card-backs-no-bleed.pdf share the card_backs page order and front_pages mapping.",
     "cards-no-bleed.pdf has exact finished-size pages, without bleed or cut marks, for printer imposition.",
     "game.pdf ends with box-proof.pdf, including visible cut/fold guides.",
     "Send separate box artwork and dieline for production; guides are spot separations.",

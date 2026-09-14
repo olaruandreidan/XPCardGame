@@ -428,8 +428,15 @@ def mark_bounds(version=1, tight=False):
 
 
 def draw_mark(canvas, x, y, width, height, tight=False, version=1):
-    """Fit the mark in a points-based rectangle, keeping aspect ratio and color."""
+    """Fit the mark, centering v3 on the X crossing and other versions on bounds."""
     vx, vy, vw, vh = mark_bounds(version, tight)
+    if version == 3:
+        # Symmetric fitting bounds keep the crossing at the target center while
+        # allowing for the P bowl's extra reach without clipping the artwork.
+        cx, cy = V3_CROSSING
+        half_w = max(cx-vx, vx+vw-cx)
+        half_h = max(cy-vy, vy+vh-cy)
+        vx, vy, vw, vh = cx-half_w, cy-half_h, 2*half_w, 2*half_h
     scale = min(width/vw, height/vh)
     canvas.saveState()
     canvas.translate(x+(width-vw*scale)/2, y+(height+vh*scale)/2)

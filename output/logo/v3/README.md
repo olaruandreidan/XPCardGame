@@ -32,6 +32,6 @@ The `V3_*` variables in `logo.py` control the geometry.
 - `V3_BOWL_RADIUS`: outside radius of the bowl; inner radius is derived by subtracting the shared stroke weight.
 - `V3_BOWL_STRAIGHT`: straight portion from the left edge of the P to the curved bowl.
 
-Bounds are derived from the actual cubic-curve extrema, so changes to the geometry remain centred and fit without clipping. Versions 1, 1b, and 2 retain their own geometry.
+Bounds are derived from the actual cubic-curve extrema. PDF placement centers version 3 on `V3_CROSSING`, the center of the X, with symmetric fitting space that accommodates the P bowl without clipping. On card backs the crossing aligns with the center of the card. On box fronts it aligns horizontally with the panel center and vertically with the midpoint between the top of the title and the top edge of the panel. Versions 1, 1b, and 2 retain their own geometry and alignment.
 
 `make_logo_v3.py` regenerates the vector exports and the study PDF when run with the same dependency-equipped Python environment used by the card generator.
