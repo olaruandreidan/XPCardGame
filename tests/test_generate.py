@@ -68,8 +68,8 @@ class GeneratorTests(unittest.TestCase):
         self.cfg.CARD_HEIGHT_MM = 95
         self.cfg.BLEED_MM = 4
         self.cfg.CARDS = [
-            {"text": "Red question?", "color": "red", "copies": 2},
-            {"text": "Green question?", "color": "green"},
+            {"text": "Category 1 question?", "color": "category_1", "copies": 2},
+            {"text": "Category 3 question?", "color": "category_3"},
         ]
         out = self.build()
         normal = PdfReader(out / "cards.pdf")
@@ -105,7 +105,7 @@ class GeneratorTests(unittest.TestCase):
 
     def test_backs_match_palette_custom_inks_and_front_copies(self):
         self.cfg.CARDS = [
-            {"text": "Red", "color": "red", "copies": 2},
+            {"text": "Category 1", "color": "category_1", "copies": 2},
             {"text": "Custom", "background_cmyk": (1, 2, 3, 4), "copies": 2},
             {"text": "Also custom", "background_cmyk": (1, 2, 3, 4)},
         ]
@@ -127,8 +127,12 @@ class GeneratorTests(unittest.TestCase):
             for item, reader in ((page, full), (trimmed, tight)):
                 ops = ContentStream(item.get_contents(), reader).operations
                 fills = [tuple(float(n) for n in values) for values, op in ops if op == b"k"]
-                self.assertEqual(fills, [tuple(v/100 for v in designs[index]["background_cmyk"]),
-                                         tuple(v/100 for v in self.cfg.CARD_BACK_LOGO_CMYK)])
+                expected_fills = [tuple(v/100 for v in designs[index]["background_cmyk"]),
+                                  tuple(v/100 for v in self.cfg.CARD_BACK_LOGO_CMYK)]
+                self.assertEqual(len(fills), len(expected_fills))
+                for actual, expected in zip(fills, expected_fills):
+                    for actual_channel, expected_channel in zip(actual, expected):
+                        self.assertAlmostEqual(actual_channel, expected_channel, places=4)
                 self.assertEqual(item.extract_text(), "")
                 operators = {op for _, op in ops}
                 self.assertIn(b"c", operators)  # Vector logo, no image or printed guides.
@@ -233,10 +237,10 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(old, (out / "cards.pdf").read_bytes())
 
     def test_invalid_inputs_and_missing_glyph(self):
-        self.cfg.CARD_COLORS_CMYK["blue"] = (101, 0, 0, 0)
+        self.cfg.CARD_COLORS_CMYK["category_1"] = (101, 0, 0, 0)
         with self.assertRaisesRegex(ValueError, "CMYK"):
             app.validate(self.cfg)
-        self.cfg.CARD_COLORS_CMYK["blue"] = (0, 0, 0, 0)
+        self.cfg.CARD_COLORS_CMYK["category_1"] = (0, 0, 0, 0)
         self.cfg.CARDS = ["Unsupported \U0001f984"]
         with self.assertRaisesRegex(ValueError, "lacks"):
             app.validate(self.cfg)
@@ -246,12 +250,12 @@ class GeneratorTests(unittest.TestCase):
 
     def test_named_colors_overrides_and_box_are_independent_in_pdf(self):
         self.cfg.CARDS = [
-            {"text": "Red", "color": "red"},
-            {"text": "Green", "color": "green"},
-            {"text": "Blue", "color": "blue"},
-            {"text": "Purple", "color": "purple"},
+            {"text": "Category 1", "color": "category_1"},
+            {"text": "Category 2", "color": "category_2"},
+            {"text": "Category 3", "color": "category_3"},
+            {"text": "Category 4", "color": "category_4"},
             "Default",
-            {"text": "Custom", "color": "red", "background_cmyk": (1, 2, 3, 4)},
+            {"text": "Custom", "color": "category_1", "background_cmyk": (1, 2, 3, 4)},
         ]
         self.cfg.BOX_BACKGROUND_CMYK = (20, 30, 40, 50)
         out = self.build()
@@ -259,8 +263,9 @@ class GeneratorTests(unittest.TestCase):
             return next(tuple(float(n) for n in values) for values, op in
                         ContentStream(page.get_contents(), reader).operations if op == b"k")
         cards = PdfReader(out / "cards.pdf")
-        expected = [(0,.9,.75,0),(.85,.1,.75,.1),(.9,.7,0,0),
-                    (.55,.85,0,0),(.9,.7,0,0),(.01,.02,.03,.04)]
+        expected = [(0,.6871,.4558,.4235),(0,.2906,.8462,.0824),
+                    (.0407,0,.5366,.5176),(.9,.7,0,0),
+                    (0,.6871,.4558,.4235),(.01,.02,.03,.04)]
         self.assertEqual([first_fill(page, cards) for page in cards.pages], expected)
         box = PdfReader(out / "box-artwork.pdf")
         self.assertEqual(first_fill(box.pages[0], box), (.2,.3,.4,.5))
@@ -285,10 +290,10 @@ class GeneratorTests(unittest.TestCase):
         self.assertNotIn(b"c", [op for _, op in ContentStream(plain.pages[0].get_contents(), plain).operations])
 
     def test_font_can_switch_back_to_manrope(self):
-        source = (app.ROOT / "game_config.py").read_text()
+        source = (app.ROOT / "game_config.py").read_text(encoding="utf-8")
         path = Path(self.tmp.name) / "alternate_config.py"
         path.write_text(re.sub(r'^FONT_NAME\s*=.*$', 'FONT_NAME = "manrope"',
-                               source, count=1, flags=re.MULTILINE))
+                               source, count=1, flags=re.MULTILINE), encoding="utf-8")
         self.cfg = app.load_config(path)
         self.cfg.BASE = app.ROOT
         self.cfg.OUTPUT_DIR = self.tmp.name

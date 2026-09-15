@@ -533,6 +533,13 @@ def build(cfg):
     # Stage every output so invalid edits cannot replace the last successful set.
     with tempfile.TemporaryDirectory(prefix=".build-", dir=output) as scratch:
         stage = Path(scratch)
+        if os.name == "nt":
+            # Windows temporary directories have private ACLs. Inherit the
+            # output folder's permissions before creating files, so moving
+            # them into output does not lock out the desktop user's viewer.
+            subprocess.run(["icacls", str(stage), "/reset"], check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           text=True)
         sizes = make_cards(cfg, cards, stage / "cards.pdf")
         make_cards(cfg, cards, stage / "cards-no-bleed.pdf", bleed_mm=0)
         make_card_backs(cfg, backs, stage / "card-backs.pdf")

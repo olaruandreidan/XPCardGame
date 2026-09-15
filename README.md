@@ -1,12 +1,12 @@
 # Marriage XP
 
-A small Python generator for solid-color, borderless cards and a matching reverse-tuck box. All artwork is vector; the supplied Fredoka Bold font is embedded. The defaults are 63.5 × 88.9 mm poker cards, 3 mm bleed, red/green/blue/purple backgrounds, and white left-aligned text. A large mathematical logo fills most of the independently colored box front, with the game name centered at the bottom and no subtitle.
+A small Python generator for solid-color, borderless cards and a matching reverse-tuck box. All artwork is vector; the supplied Fredoka font is embedded. The defaults are 63.5 × 88.9 mm poker cards, 3 mm bleed, four category backgrounds, charcoal instruction cards, and white left-aligned text. A large mathematical logo fills most of the independently colored box front, with the game name centered at the bottom and no subtitle.
 
 ## Quick start
 
 On this Mac, double-click **Generate PDFs.command**, or run `python3 generate.py` / `python3 generate.py --watch`. If your current Python lacks the PDF dependencies, the script automatically checks the project's `.venv` and then the bundled Codex Python runtime. It reuses an environment with both dependencies installed and preserves your command-line options.
 
-Edit **game_config.py**, save, then run the launcher again. The first card is your finance question; the other 11 prompts and the box description are editable examples. Generated files live in **output/pdf/**.
+Edit **game_config.py**, save, then run the launcher again. The default deck has 9 instruction/QR cards followed by 56 categorized question cards. Generated files live in **output/pdf/**.
 
 **Switch fonts in one line:** set `FONT_NAME` to any option below. All fonts are bundled; no font installation is needed. `fredoka` remains an alias for `fredoka-bold`.
 
@@ -59,7 +59,7 @@ Use `--format poker` to generate a poker comparison in `output/pdf/poker/`. Alte
 | `FONT_SIZE_PT`, `MIN_FONT_SIZE_PT` | Preferred size and lower limit for automatic shrinking |
 | `SAFE_MARGIN_MM`, `LINE_HEIGHT` | Inner text spacing and line spacing multiplier |
 | `TEXT_VERTICAL_ALIGN` | `top`, `center`, or `bottom`; horizontal alignment stays left |
-| `CARD_COLORS_CMYK` | Named card colors: red, green, blue, purple; add or edit any CMYK tuple |
+| `CARD_COLORS_CMYK` | Named colors for categories 1–4 and instruction cards; add or edit any CMYK tuple |
 | `DEFAULT_CARD_COLOR` | Color name used by plain strings or cards without a `color` field |
 | `TEXT_CMYK` | Default card text color; four ink percentages, each from 0 through 100 |
 | `CARD_BACK_LOGO_CMYK` | Independent logo color for card backs; white by default |
@@ -79,8 +79,8 @@ For example:
 
 ```python
 CARDS = [
-    {"text": "How will we govern our finances?", "color": "blue"},
-    {"text": "What does\nhome mean to you?", "color": "red", "copies": 2,
+    {"text": "What does our ideal morning look like?", "color": "category_1"},
+    {"text": "Where do we want to live?", "color": "category_2", "copies": 2,
      "font_size_pt": 25},
     {"text": "Make your own cards.", "color": "rules",
      "qr": "https://github.com/olaruandreidan/XPCardGame"},
@@ -88,7 +88,7 @@ CARDS = [
 BOX_BACKGROUND_CMYK = (85, 10, 75, 10)  # Green box, independent of card colors.
 ```
 
-This produces three card pages and sizes the box for three cards. A `background_cmyk` tuple on an individual card overrides its named palette color. The default sample colors are illustrative, not gameplay categories. Changing the card palette never changes the box colors. Every card has exactly one solid background and one phrase. There are no printed borders, numbers, or trim marks on cards. Text wraps at spaces, preserves explicit newlines, and may shrink in quarter-point increments. A word that is too wide or text that cannot fit at the minimum size stops the build with a useful error. Missing font characters and unknown color names also stop the build.
+This produces four card pages and sizes the box for four cards. A `background_cmyk` tuple on an individual card overrides its named palette color. Changing the card palette never changes the box colors. Every card has exactly one solid background and one phrase. There are no printed borders, numbers, or trim marks on cards. Text wraps at spaces, preserves explicit newlines, and may shrink in quarter-point increments. A word that is too wide or text that cannot fit at the minimum size stops the build with a useful error. Missing font characters and unknown color names also stop the build.
 
 ### QR cards
 
@@ -129,7 +129,7 @@ inside depth  = max(card count × card thickness + depth clearance, minimum dept
 score-to-score panel dimensions = inside dimensions + one box-board thickness
 ```
 
-The default 12-card sample uses a minimum 12 mm inside depth. As you add enough cards, the depth grows automatically. For sleeved cards, use their outside dimensions and measured stack thickness. The net is intended for folding carton stock, not thick rigid board. Extreme dimensions that make the box wider in depth than its face are rejected.
+The default 65-card deck uses its calculated stack depth. Smaller decks use a minimum 12 mm inside depth. For sleeved cards, use their outside dimensions and measured stack thickness. The net is intended for folding carton stock, not thick rigid board. Extreme dimensions that make the box wider in depth than its face are rejected.
 
 Make a physical prototype with your actual stock before ordering a print run. This is a parametric prototype dieline; commercial tooling may need adjusted score allowances and closure geometry.
 
