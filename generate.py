@@ -585,7 +585,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "game_config.py")
     parser.add_argument("--watch", action="store_true", help="Rebuild when config, logo, or font changes.")
-    parser.add_argument("--format", choices=("poker", "square"),
+    parser.add_argument("--format", choices=("poker", "square", "tarot"),
                         help="Override the card format; write to OUTPUT_DIR/<format>/ for comparison.")
     args = parser.parse_args()
     path = args.config.resolve()

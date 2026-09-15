@@ -49,6 +49,14 @@ python3 generate.py --format square --watch
 
 Use `--format poker` to generate a poker comparison in `output/pdf/poker/`. Alternatively, change `CARD_FORMAT = "square"` in `game_config.py` to make square the normal mode for the launcher and plain `python3 generate.py`; without a command-line override, files go directly into `OUTPUT_DIR`. Set it back to `"poker"` to restore the previous size. Formats share phrases, fonts, colors, and margins. Text may shrink to fit, respecting `MIN_FONT_SIZE_PT`, and the box resizes automatically. Square pages with the default 3 mm bleed measure 69.5 × 69.5 mm; no-bleed pages measure exactly 63.5 × 63.5 mm.
 
+**Tarot mode:** run `python3 generate.py --format tarot` for 70 × 120 mm cards, the standard tarot trim size used by most print shops, and a matching box. Its eight PDFs go in `output/pdf/tarot/`. Add `--watch` to keep that version up to date:
+
+```sh
+python3 generate.py --format tarot --watch
+```
+
+Or set `CARD_FORMAT = "tarot"` in `game_config.py` to make it the normal mode. Tarot pages with the default 3 mm bleed measure 76 × 126 mm; no-bleed pages measure exactly 70 × 120 mm. The extra height and width give text more room than poker or square, so fewer (if any) cards need auto-shrinking.
+
 | Setting | Meaning |
 | --- | --- |
 | `CARDS` | Phrases in page order; strings or dictionaries with per-card overrides |

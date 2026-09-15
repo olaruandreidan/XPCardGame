@@ -23,10 +23,11 @@ LOGO_VERSION = 3  # 1 = original solid mark; "1b" = version 1 with matched arm r
                   # 2 = outlined loop/stem from the second sketch;
                   # 3 = straight crossed-bar X from the third sketch.
 
-CARD_FORMAT = "poker"  # "poker" or "square"; square is 2.5 × 2.5 inches.
+CARD_FORMAT = "poker"  # "poker", "square", or "tarot"; square is 2.5 × 2.5 inches.
 CARD_FORMATS_MM = {
     "poker": (63.5, 88.9),
     "square": (63.5, 63.5),
+    "tarot": (70, 120),
 }
 CARD_WIDTH_MM, CARD_HEIGHT_MM = CARD_FORMATS_MM[CARD_FORMAT]
 # Edit the dimensions above to customize a format. All other settings are shared.
