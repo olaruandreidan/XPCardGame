@@ -543,7 +543,19 @@ def build(cfg):
         sizes = make_cards(cfg, cards, stage / "cards.pdf")
         make_cards(cfg, cards, stage / "cards-no-bleed.pdf", bleed_mm=0)
         make_card_backs(cfg, backs, stage / "card-backs.pdf")
-        make_card_backs(cfg, backs, stage / "card-backs-no-bleed.pdf", bleed_mm=0)
+        # One no-bleed file per back color, named by palette key or a custom
+        # index; card_back_designs() already merges duplicate custom inks, so
+        # each back here is a visually distinct color.
+        custom_backs = 0
+        for back in backs:
+            if back["color"]:
+                slug = back["color"]
+            else:
+                custom_backs += 1
+                slug = f"custom-{custom_backs}"
+            filename = f"card-backs-no-bleed-{slug}.pdf"
+            make_card_backs(cfg, [back], stage / filename, bleed_mm=0)
+            back["no_bleed_file"] = filename
         page_size = make_box(cfg, g, stage / "box-artwork.pdf", True, False)
         make_box(cfg, g, stage / "box-dieline.pdf", False, True)
         make_box(cfg, g, stage / "box-proof.pdf", True, True)
@@ -565,7 +577,7 @@ def build(cfg):
                       box_score_panel_mm=[g["W"], g["H"], g["D"]],
                       box_page_mm=page_size, icc_profile=cfg.ICC_PROFILE_PATH,
                       notes=["Card fronts and color-matched backs are separate PDFs; no duplex pairing or sheet imposition.",
-                             "card-backs.pdf and card-backs-no-bleed.pdf share the card_backs page order and front_pages mapping.",
+                             "card-backs.pdf has one page per back, in the card_backs page order; each back's no_bleed_file is its own single-page PDF instead.",
                              "cards-no-bleed.pdf has exact finished-size pages, without bleed or cut marks, for printer imposition.",
                              "game.pdf ends with box-proof.pdf, including visible cut/fold guides.",
                              "Send separate box artwork and dieline for production; guides are spot separations.",
@@ -574,6 +586,9 @@ def build(cfg):
         (stage / "build-report.json").write_text(json.dumps(report, indent=2)+"\n", encoding="utf-8")
         for path in stage.iterdir():
             path.replace(output / path.name)
+        stale = output / "card-backs-no-bleed.pdf"
+        if stale.exists():
+            stale.unlink()
     print(f"Built {len(cards)} cards ({cfg.CARD_WIDTH_MM:g} x {cfg.CARD_HEIGHT_MM:g} mm).")
     print(f"Estimated box inside: {g['W']-cfg.BOX_BOARD_THICKNESS_MM:g} x "
           f"{g['H']-cfg.BOX_BOARD_THICKNESS_MM:g} x {g['depth']:g} mm.")

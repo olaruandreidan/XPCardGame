@@ -110,7 +110,7 @@ A `qr` URL turns a card into a QR card. The code is generated from the URL and d
 | `cards.pdf` | Production card faces, one per page, with bleed and explicit TrimBox/BleedBox |
 | `cards-no-bleed.pdf` | Exact finished-size card pages without bleed or cut marks, for the printer to arrange on a larger sheet |
 | `card-backs.pdf` | One back per palette color, plus additional custom card backgrounds; centered vector logo, with bleed |
-| `card-backs-no-bleed.pdf` | Same back pages at exact finished size, without bleed or cut marks |
+| `card-backs-no-bleed-<color>.pdf` | One file per back color, at exact finished size, without bleed or cut marks; e.g. `card-backs-no-bleed-category_1.pdf` |
 | `box-artwork.pdf` | Clean box artwork, without manufacturing lines |
 | `box-dieline.pdf` | Matching vector cut and score paths on a separate page |
 | `box-proof.pdf` | Box artwork plus visible manufacturing guides for assembly and review |
@@ -149,7 +149,7 @@ Make a physical prototype with your actual stock before ordering a print run. Th
 
 Card backs are generated on every run, including watch mode and both card formats. Their backgrounds use exactly the same CMYK values as the fronts. Each has only the selected `LOGO_VERSION`, with proportions preserved. Version 3 centers the X's crossing on the card; on the box it centers horizontally on the front panel and vertically in the space between the title and the top edge; other versions center by their visible bounds. Scaling accounts for the P bowl's extra reach so it stays inside the available space, clear of the box name. `CARD_BACK_LOGO_SCALE` controls its size and `CARD_BACK_LOGO_CMYK` its ink, independently of the box. Backs always display the logo; `USE_VECTOR_LOGO` controls the box only.
 
-Back pages follow `CARD_COLORS_CMYK` order, including unused palette entries. Additional distinct `background_cmyk` overrides follow in first-use order. The `card_backs` list in `build-report.json` gives each back's one-based page number, ink values, and matching front page numbers, including copies. Back designs do not increase the deck count or box depth. Give the printer `card-backs.pdf` with `cards.pdf`, or both no-bleed files. The printer repeats each back for its matching fronts and handles sheet arrangement and duplex orientation. `game.pdf` remains the fronts followed by the box proof; no sheet imposition or rounded-corner tooling is generated.
+Back pages follow `CARD_COLORS_CMYK` order, including unused palette entries. Additional distinct `background_cmyk` overrides follow in first-use order. The `card_backs` list in `build-report.json` gives each back's one-based page number in `card-backs.pdf`, its `no_bleed_file` name, ink values, and matching front page numbers, including copies. Back designs do not increase the deck count or box depth. Give the printer `card-backs.pdf` with `cards.pdf`, or the per-color no-bleed files (named `card-backs-no-bleed-<color>.pdf`, one per palette key or `custom-<n>` for extra inks) alongside `cards-no-bleed.pdf`. The printer repeats each back for its matching fronts and handles sheet arrangement and duplex orientation. `game.pdf` remains the fronts followed by the box proof; no sheet imposition or rounded-corner tooling is generated.
 
 ## Logo study
 

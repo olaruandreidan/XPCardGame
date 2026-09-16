@@ -117,10 +117,19 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(designs[-1]["front_pages"], [3, 4, 5])
         self.assertEqual(report["card_count"], 5)
         full = PdfReader(out / "card-backs.pdf")
-        tight = PdfReader(out / "card-backs-no-bleed.pdf")
         self.assertEqual(len(full.pages), len(designs))
-        self.assertEqual(len(tight.pages), len(designs))
-        for index, (page, trimmed) in enumerate(zip(full.pages, tight.pages)):
+        custom_count = 0
+        for design in designs:
+            if design["color"]:
+                expected_file = f"card-backs-no-bleed-{design['color']}.pdf"
+            else:
+                custom_count += 1
+                expected_file = f"card-backs-no-bleed-custom-{custom_count}.pdf"
+            self.assertEqual(design["no_bleed_file"], expected_file)
+        for index, page in enumerate(full.pages):
+            tight = PdfReader(out / designs[index]["no_bleed_file"])
+            self.assertEqual(len(tight.pages), 1)
+            trimmed = tight.pages[0]
             self.assertEqual(page.trimbox, PdfReader(out / "cards.pdf").pages[0].trimbox)
             self.assertEqual(trimmed.mediabox, trimmed.trimbox)
             self.assertEqual(trimmed.mediabox, trimmed.bleedbox)
@@ -145,7 +154,8 @@ class GeneratorTests(unittest.TestCase):
         self.cfg.CARD_BACK_LOGO_SCALE = 0.5
         self.cfg.CARD_BACK_LOGO_CMYK = (0, 0, 0, 100)
         out = self.build()
-        pdf = PdfReader(out / "card-backs-no-bleed.pdf")
+        report = json.loads((out / "build-report.json").read_text())
+        pdf = PdfReader(out / report["card_backs"][0]["no_bleed_file"])
         page = pdf.pages[0]
         self.assertAlmostEqual(float(page.mediabox.width), 180, places=3)
         self.assertAlmostEqual(float(page.mediabox.height), 180, places=3)

@@ -420,7 +420,8 @@
         23,
         24
       ],
-      "page": 1
+      "page": 1,
+      "no_bleed_file": "card-backs-no-bleed-category_1.pdf"
     },
     {
       "color": "category_2",
@@ -445,7 +446,8 @@
         36,
         37
       ],
-      "page": 2
+      "page": 2,
+      "no_bleed_file": "card-backs-no-bleed-category_2.pdf"
     },
     {
       "color": "category_3",
@@ -471,7 +473,8 @@
         50,
         51
       ],
-      "page": 3
+      "page": 3,
+      "no_bleed_file": "card-backs-no-bleed-category_3.pdf"
     },
     {
       "color": "category_4",
@@ -497,7 +500,8 @@
         64,
         65
       ],
-      "page": 4
+      "page": 4,
+      "no_bleed_file": "card-backs-no-bleed-category_4.pdf"
     },
     {
       "color": "rules",
@@ -518,7 +522,8 @@
         8,
         9
       ],
-      "page": 5
+      "page": 5,
+      "no_bleed_file": "card-backs-no-bleed-rules.pdf"
     }
   ],
   "card_back_logo_cmyk": [
@@ -629,7 +634,7 @@
   "icc_profile": null,
   "notes": [
     "Card fronts and color-matched backs are separate PDFs; no duplex pairing or sheet imposition.",
-    "card-backs.pdf and card-backs-no-bleed.pdf share the card_backs page order and front_pages mapping.",
+    "card-backs.pdf has one page per back, in the card_backs page order; each back's no_bleed_file is its own single-page PDF instead.",
     "cards-no-bleed.pdf has exact finished-size pages, without bleed or cut marks, for printer imposition.",
     "game.pdf ends with box-proof.pdf, including visible cut/fold guides.",
     "Send separate box artwork and dieline for production; guides are spot separations.",
